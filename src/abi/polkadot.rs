@@ -107,6 +107,31 @@ fn resolve_ast(ty: &ast::Type, ns: &ast::Namespace, registry: &mut PortableRegis
                 Type::new(path, vec![], TypeDef::Composite(c), Default::default());
             registry.register_type(ty)
         }
+        ast::Type::Uint(256) | ast::Type::Int(256) => {
+           // substituted to [u64; 4]
+            let s256_ty = resolve_ast(
+                &ast::Type::Array(
+                    Box::new(ast::Type::Uint(64)),
+                    vec![ArrayLength::Fixed(BigInt::from(4))],
+                ),
+                ns,
+                registry,
+            );
+
+            // substituted to struct { U256 } or { I256 }
+            let field = Field::new(None, s256_ty.into(), None, vec![]);
+            let c = TypeDefComposite::new(vec![field]);
+
+            let sub_path = match ty {
+                ast::Type::Uint(_) => "U256",
+                ast::Type::Int(_) => "I256",
+                _ => panic!("Not supported type")
+            };
+            let path = path!("ink_env", "types", sub_path);
+            let ty: Type<PortableForm> =
+                Type::new(path, vec![], TypeDef::Composite(c), Default::default());
+            registry.register_type(ty)
+        }
         // primitive types
         ast::Type::Bool | ast::Type::Int(_) | ast::Type::Uint(_) | ast::Type::String => {
             primitive_to_ty(ty, registry)
